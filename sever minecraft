@@ -1,1 +1,249 @@
 
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>PixelStrike 3D</title>
+<style>
+  *{box-sizing:border-box} html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101722;color:#fff;font-family:system-ui,Arial}
+  #game{position:fixed;inset:0;touch-action:none}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+  #hud{position:fixed;inset:0;pointer-events:none}
+  .top{display:flex;justify-content:space-between;align-items:flex-start;padding:12px;gap:8px}
+  .badge{background:#101a28c9;border:1px solid #ffffff35;border-radius:12px;padding:8px 12px;font-weight:800;text-shadow:0 2px 3px #000}
+  #message{position:absolute;top:17%;left:50%;transform:translateX(-50%);text-align:center;font-weight:900;font-size:clamp(22px,5vw,42px);text-shadow:0 3px 8px #000;white-space:nowrap}
+  #help{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);font-size:12px;color:#e4edf8;background:#101a28a8;padding:6px 10px;border-radius:9px;text-align:center;white-space:nowrap}
+  #mobile{position:fixed;inset:0;pointer-events:none}
+  #stick{position:absolute;left:22px;bottom:26px;width:126px;height:126px;border-radius:50%;border:2px solid #ffffff70;background:#16263b88;pointer-events:auto;touch-action:none}
+  #nub{position:absolute;left:38px;top:38px;width:46px;height:46px;border-radius:50%;background:#dcecffbb;border:2px solid white}
+  #fire{position:absolute;right:24px;bottom:38px;width:88px;height:88px;border-radius:50%;border:3px solid #fff;background:#dc3545df;color:white;font-size:17px;font-weight:900;pointer-events:auto;touch-action:none}
+  #reload{position:absolute;right:34px;bottom:140px;width:66px;height:44px;border:1px solid white;border-radius:10px;background:#172b42dd;color:white;font-weight:800;pointer-events:auto}
+  #start{position:fixed;inset:0;background:#07111ddd;display:flex;align-items:center;justify-content:center;padding:22px;text-align:center}
+  #panel{max-width:440px;background:#152338;border:1px solid #ffffff35;border-radius:20px;padding:24px;box-shadow:0 20px 60px #0008}
+  #panel h1{margin:0 0 8px;font-size:30px;color:#ffd166}
+  #panel p{line-height:1.5;color:#d8e4f2}
+  #play{border:0;border-radius:12px;background:#ffd166;color:#18202b;padding:14px 28px;font-weight:900;font-size:18px}
+  #cross{position:fixed;left:50%;top:50%;width:20px;height:20px;transform:translate(-50%,-50%);pointer-events:none}
+  #cross:before,#cross:after{content:"";position:absolute;background:#fff;box-shadow:0 0 3px #000}
+  #cross:before{width:2px;height:20px;left:9px}#cross:after{height:2px;width:20px;top:9px}
+  @media(hover:hover) and (pointer:fine){#mobile{display:none}#help{bottom:12px}}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="hud">
+  <div class="top">
+    <div class="badge" id="health">❤️ 100</div>
+    <div class="badge" id="wave">WAVE 1</div>
+    <div class="badge" id="ammo">🔫 12 / 60</div>
+    <div class="badge" id="score">⭐ 0</div>
+  </div>
+  <div id="message"></div>
+  <div id="help">Mobile: joystick di chuyển • vuốt bên phải để ngắm • FIRE để bắn</div>
+</div>
+<div id="cross"></div>
+<div id="mobile">
+  <div id="stick"><div id="nub"></div></div>
+  <button id="reload">NẠP</button>
+  <button id="fire">FIRE</button>
+</div>
+<div id="start">
+ <div id="panel">
+  <h1>PIXELSTRIKE 3D</h1>
+  <p>Game bắn súng góc nhìn thứ nhất 3D. Tiêu diệt robot, sống sót qua từng đợt tấn công.</p>
+  <p><b>Điện thoại:</b> joystick trái để đi, vuốt nửa màn hình bên phải để xoay nhìn, nút FIRE để bắn.<br><b>Máy tính:</b> WASD để đi, chuột để ngắm, click để bắn, R để nạp đạn.</p>
+  <button id="play">BẮT ĐẦU</button>
+ </div>
+</div>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { FBXLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/FBXLoader.js';
+import * as SkeletonUtils from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/utils/SkeletonUtils.js';
+
+const root=document.getElementById('game');
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x8bc5df);
+scene.fog=new THREE.Fog(0x8bc5df,22,75);
+const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,100);
+camera.position.set(0,1.65,7);
+const renderer=new THREE.WebGLRenderer({antialias:false});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+root.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xd9f3ff,0x48505b,2.1));
+const sun=new THREE.DirectionalLight(0xffe3b0,2.2);sun.position.set(-8,15,8);sun.castShadow=true;scene.add(sun);
+
+const mat=(c,rough=.85)=>new THREE.MeshStandardMaterial({color:c,roughness:rough});
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(100,100),mat(0x667b59));floor.rotation.x=-Math.PI/2;floor.position.y=0;floor.receiveShadow=true;scene.add(floor);
+const grid=new THREE.GridHelper(80,40,0x40583e,0x52694a);grid.position.y=.012;scene.add(grid);
+
+function box(x,y,z,sx,sy,sz,color){
+ const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),mat(color));m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;scene.add(m);return m;
+}
+// Arena walls and cover blocks
+box(0,2,-22,48,4,1,0x526b7c);box(0,2,22,48,4,1,0x526b7c);
+box(-24,2,0,1,4,44,0x526b7c);box(24,2,0,1,4,44,0x526b7c);
+for(const [x,z] of [[-9,-7],[8,-10],[-12,8],[11,7],[0,-15],[0,13]]){
+ box(x,.8,z,3,1.6,3,0x8a765d);
+ box(x,.15,z,3.2,.3,3.2,0x514c42);
+}
+for(let i=0;i<12;i++){
+ const x=(i%4-1.5)*10, z=-18+Math.floor(i/4)*18;
+ const p=box(x,2.2,z,.65,4.4,.65,0x6d7c87);
+ const lamp=new THREE.PointLight(0xffc66d,1.2,7);lamp.position.set(x,3.8,z);scene.add(lamp);
+}
+const gun=new THREE.Group();camera.add(gun);scene.add(camera);
+const gunBody=new THREE.Mesh(new THREE.BoxGeometry(.22,.18,.65),mat(0x263445));gunBody.position.set(.34,-.28,-.62);gun.add(gunBody);
+const barrel=new THREE.Mesh(new THREE.CylinderGeometry(.045,.055,.48,8),mat(0x111820));barrel.rotation.x=Math.PI/2;barrel.position.set(.34,-.23,-1.08);gun.add(barrel);
+const grip=new THREE.Mesh(new THREE.BoxGeometry(.12,.25,.16),mat(0x394a55));grip.position.set(.34,-.43,-.45);gun.add(grip);
+
+const enemies=[];const raycaster=new THREE.Raycaster();const center=new THREE.Vector2(0,0);
+let health=100,score=0,ammo=12,reserve=60,wave=1,dead=false,started=false,reloading=false;
+let yaw=0,pitch=0,moveX=0,moveY=0,fireHeld=false,lastShot=0,damageFlash=0;
+const clock=new THREE.Clock();
+let enemyTemplate=null;
+function loadEnemyModel(){
+ return new Promise(resolve=>{
+  const manager=new THREE.LoadingManager();
+  const loader=new FBXLoader(manager);
+  loader.setResourcePath(new URL('./assets/',location.href).href);
+  loader.load('./assets/Yae%20Miko.fbx', object=>{
+   object.updateMatrixWorld(true);
+   const bounds=new THREE.Box3().setFromObject(object);
+   const size=new THREE.Vector3();bounds.getSize(size);
+   object.scale.setScalar(2.25/Math.max(size.y,0.001));
+   object.updateMatrixWorld(true);
+   const scaledBounds=new THREE.Box3().setFromObject(object);
+   object.position.y-=scaledBounds.min.y;
+   object.traverse(child=>{if(child.isMesh){child.castShadow=true;child.receiveShadow=true;}});
+   enemyTemplate=object;resolve(true);
+  },undefined,error=>{console.error(error);resolve(false);});
+ });
+}
+function spawnEnemy(){
+ const group=new THREE.Group();
+ if(enemyTemplate){
+  group.add(SkeletonUtils.clone(enemyTemplate));
+ }else{
+  const body=new THREE.Mesh(new THREE.BoxGeometry(.8,1.15,.55),mat(0xb43f45));body.position.y=.85;body.castShadow=true;group.add(body);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(.58,.48,.5),mat(0x354c5b));head.position.y=1.68;head.castShadow=true;group.add(head);
+ }
+ let a=Math.random()*Math.PI*2,r=13+Math.random()*6;
+ group.position.set(Math.cos(a)*r,0,Math.sin(a)*r);
+ group.userData={hp:3,speed:1+Math.random()*.35,attack:0};
+ scene.add(group);enemies.push(group);
+}
+function spawnWave(){for(let i=0;i<Math.min(3+wave*2,12);i++)spawnEnemy();document.getElementById('wave').textContent='WAVE '+wave;}
+function updateHud(){
+ document.getElementById('health').textContent='❤️ '+Math.max(0,health);
+ document.getElementById('ammo').textContent='🔫 '+ammo+' / '+reserve;
+ document.getElementById('score').textContent='⭐ '+score;
+}
+function reload(){
+ if(reloading||ammo===12||reserve<=0||dead)return;
+ reloading=true;document.getElementById('message').textContent='ĐANG NẠP ĐẠN...';
+ setTimeout(()=>{let n=Math.min(12-ammo,reserve);ammo+=n;reserve-=n;reloading=false;document.getElementById('message').textContent='';updateHud();},950);
+}
+function shoot(){
+ const now=performance.now();if(now-lastShot<230||reloading||dead)return;lastShot=now;
+ if(ammo<=0){reload();return;}ammo--;updateHud();
+ gun.position.z=.08;setTimeout(()=>gun.position.z=0,65);
+ raycaster.setFromCamera(center,camera);
+ const meshes=[];enemies.forEach(e=>e.traverse(o=>{if(o.isMesh)meshes.push(o)}));
+ const hits=raycaster.intersectObjects(meshes,false);
+ if(hits.length){
+  let target=hits[0].object;let enemy=target;while(enemy.parent&&!enemies.includes(enemy))enemy=enemy.parent;
+  if(enemies.includes(enemy)){
+   enemy.userData.hp--;
+   target.material.emissive=new THREE.Color(0x661111);setTimeout(()=>{if(target.material.emissive)target.material.emissive.set(0x000000)},90);
+   if(enemy.userData.hp<=0){scene.remove(enemy);enemies.splice(enemies.indexOf(enemy),1);score+=100;updateHud();}
+  }
+ }
+}
+function endGame(text){dead=true;document.getElementById('message').textContent=text+' — nhấn BẮT ĐẦU LẠI';document.getElementById('start').style.display='flex';document.querySelector('#panel h1').textContent='KẾT THÚC';document.querySelector('#panel p').innerHTML='Điểm của bạn: <b>'+score+'</b><br>Nhấn nút bên dưới để chơi lại.';document.getElementById('play').textContent='CHƠI LẠI';}
+function reset(){
+ enemies.forEach(e=>scene.remove(e));enemies.length=0;
+ health=100;score=0;ammo=12;reserve=60;wave=1;dead=false;reloading=false;yaw=0;pitch=0;
+ camera.position.set(0,1.65,7);camera.rotation.set(0,0,0);spawnWave();updateHud();
+ document.getElementById('message').textContent='';
+ document.getElementById('start').style.display='none';
+ document.querySelector('#panel h1').textContent='PIXELSTRIKE 3D';
+}
+let modelReady=false;
+const loadPromise=loadEnemyModel().then(ok=>{modelReady=true;return ok;});
+document.getElementById('play').addEventListener('click',()=>{
+ started=true;
+ if(modelReady) reset();
+ else {document.getElementById('message').textContent='Đang tải model...';loadPromise.then(()=>reset());}
+});
+document.getElementById('reload').addEventListener('pointerdown',e=>{e.preventDefault();reload();});
+document.getElementById('fire').addEventListener('pointerdown',e=>{e.preventDefault();fireHeld=true;shoot();});
+for(const ev of ['pointerup','pointercancel','pointerleave'])document.getElementById('fire').addEventListener(ev,()=>fireHeld=false);
+
+// Virtual joystick
+const stick=document.getElementById('stick'),nub=document.getElementById('nub');let stickId=null;
+stick.addEventListener('pointerdown',e=>{stickId=e.pointerId;stick.setPointerCapture(stickId);moveStick(e);});
+stick.addEventListener('pointermove',e=>{if(e.pointerId===stickId)moveStick(e);});
+function moveStick(e){const r=stick.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let dx=e.clientX-cx,dy=e.clientY-cy;const len=Math.hypot(dx,dy),max=42;if(len>max){dx=dx/len*max;dy=dy/len*max;}nub.style.transform=`translate(${dx}px,${dy}px)`;moveX=dx/max;moveY=dy/max;}
+function releaseStick(){stickId=null;moveX=moveY=0;nub.style.transform='translate(0,0)';}
+stick.addEventListener('pointerup',releaseStick);stick.addEventListener('pointercancel',releaseStick);
+
+// Touch-look: drag on right half, except buttons
+let lookId=null,lastX=0,lastY=0;
+renderer.domElement.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&e.clientX>innerWidth*.38){lookId=e.pointerId;lastX=e.clientX;lastY=e.clientY;renderer.domElement.setPointerCapture(lookId);}});
+renderer.domElement.addEventListener('pointermove',e=>{if(e.pointerId===lookId){let dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;yaw-=dx*.004;pitch-=dy*.004;pitch=Math.max(-1.25,Math.min(1.25,pitch));}});
+renderer.domElement.addEventListener('pointerup',()=>lookId=null);
+renderer.domElement.addEventListener('pointercancel',()=>lookId=null);
+
+// Desktop mouse controls
+let mouseDown=false;
+renderer.domElement.addEventListener('click',()=>{if(started&&!dead&&matchMedia('(hover:hover) and (pointer:fine)').matches)shoot();});
+renderer.domElement.addEventListener('mousedown',()=>mouseDown=true);
+document.addEventListener('mouseup',()=>mouseDown=false);
+document.addEventListener('mousemove',e=>{if(mouseDown&&matchMedia('(hover:hover) and (pointer:fine)').matches){yaw-=e.movementX*.003;pitch-=e.movementY*.003;pitch=Math.max(-1.25,Math.min(1.25,pitch));}});
+document.addEventListener('keydown',e=>{if(e.code==='KeyR')reload();});
+
+function animate(){
+ requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.04);
+ if(started&&!dead){
+  const forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
+  const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
+  const dir=new THREE.Vector3().addScaledVector(forward,-moveY).addScaledVector(right,moveX);
+  if(dir.lengthSq()>1)dir.normalize();
+  if(keysDown('KeyW','ArrowUp'))dir.add(forward);
+  if(keysDown('KeyS','ArrowDown'))dir.sub(forward);
+  if(keysDown('KeyD','ArrowRight'))dir.add(right);
+  if(keysDown('KeyA','ArrowLeft'))dir.sub(right);
+  if(dir.lengthSq()>0)dir.normalize();
+  camera.position.addScaledVector(dir,dt*5);
+  camera.position.x=Math.max(-21,Math.min(21,camera.position.x));
+  camera.position.z=Math.max(-20,Math.min(20,camera.position.z));
+  camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;
+  if(fireHeld)shoot();
+  for(const e of [...enemies]){
+   const dx=camera.position.x-e.position.x,dz=camera.position.z-e.position.z,d=Math.hypot(dx,dz);
+   if(d>1.35){e.position.x+=dx/d*e.userData.speed*dt;e.position.z+=dz/d*e.userData.speed*dt;}
+   e.lookAt(camera.position.x,.9,camera.position.z);
+   e.userData.attack+=dt;
+   if(d<1.7&&e.userData.attack>0.8){health-=8;e.userData.attack=0;updateHud();if(health<=0)endGame('GAME OVER');}
+  }
+  if(enemies.length===0&&!dead){wave++;reserve=Math.min(120,reserve+12);spawnWave();updateHud();document.getElementById('message').textContent='WAVE '+wave+'!';setTimeout(()=>{if(!dead)document.getElementById('message').textContent='';},1000);}
+ }
+ renderer.render(scene,camera);
+}
+function keysDown(...codes){return codes.some(c=>pressed.has(c));}
+const pressed=new Set();
+document.addEventListener('keydown',e=>pressed.add(e.code));
+document.addEventListener('keyup',e=>pressed.delete(e.code));
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+updateHud();animate();
+</script>
+</body>
+</html>
